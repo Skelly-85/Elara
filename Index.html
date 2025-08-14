@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elara</title>
+<style>
+  :root { --pad: 16px; --radius: 14px; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; margin:0; background:#0f1115; color:#e6e8ee; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: var(--pad); }
+  .card { background:#171a21; border:1px solid #222635; border-radius: var(--radius); padding: var(--pad); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  h1 { font-size: 1.4rem; margin: 0 0 8px; }
+  p.meta { margin: 0 0 12px; color:#9aa3b2; }
+  .row { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+  label { font-size:.95rem; color:#c3c9d4; }
+  textarea, input, select { width: 100%; border-radius: 10px; border:1px solid #2a3040; background:#10131a; color:#e6e8ee; padding:12px; font-size:1rem; outline: none; }
+  textarea { min-height: 120px; resize: vertical; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn { appearance:none; border:1px solid #2f3850; background:#1c2230; color:#e6e8ee; padding:12px; border-radius:12px; font-weight:600; cursor:pointer; }
+  .btn:hover { background:#232a3b; }
+  .btn.primary { border-color:#3d6cff; background:#2b4cff; }
+  .btn.primary:hover { background:#2443ee; }
+  .muted { color:#9aa3b2; font-size:.9rem; }
+  .hint { font-size:.9rem; color:#9aa3b2; }
+  .hidden { display:none; }
+  .footer { margin-top:14px; font-size:.85rem; color:#8892a6; text-align:center; }
+  .copy { display:inline-flex; gap:8px; align-items:center; }
+  .chip { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid #2a3040; background:#121722; font-size:.85rem; color:#c3c9d4; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Elara</h1>
+      <p class="meta">Vigenère • ROT13 • Morse &nbsp; <span class="chip">offline</span> <span class="chip">kein Tracking</span></p>
+
+      <div class="row">
+        <label for="mode">Modus</label>
+        <select id="mode">
+          <option value="vigenere" selected>Vigenère (mit Schlüssel)</option>
+          <option value="rot13">ROT13 (ohne Schlüssel)</option>
+          <option value="morse">Morse (.- / -)</option>
+        </select>
+      </div>
+
+      <div class="row" id="keyRow">
+        <label for="key">Schlüssel (nur bei Vigenère, Buchstaben A–Z)</label>
+        <input id="key" placeholder="z. B. MONDLIGHT" autocomplete="off">
+      </div>
+
+      <div class="row">
+        <label for="input">Text</label>
+        <textarea id="input" placeholder="Dein Klar- oder Geheimtext hier …"></textarea>
+        <div class="hint" id="morseHint" class="hidden">Morse-Hinweis: Wörter mit <code>/</code> trennen. Beispiel: <code>.... .- .-.. .-.. --- / .-- . .-.. -</code></div>
+      </div>
+
+      <div class="grid2">
+        <button class="btn primary" id="encBtn">Verschlüsseln</button>
+        <button class="btn" id="decBtn">Entschlüsseln</button>
+      </div>
+
+      <div class="row">
+        <label for="output">Ausgabe</label>
+        <textarea id="output" readonly placeholder="Ergebnis erscheint hier …"></textarea>
+        <div class="copy">
+          <button class="btn" id="copyBtn">In Zwischenablage kopieren</button>
+          <span class="muted" id="copyStatus"></span>
+        </div>
+      </div>
+
+      <div class="footer">
+        Tipp: Für Vigenère reicht ein gemeinsames Codewort. Für Rapid‑Chat nutze <span class="chip">ROT13</span>; für unauffällige Kurznachrichten <span class="chip">Morse</span>.
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const MORSE = {
+    'A': '.-','B': '-...','C': '-.-.','D': '-..','E': '.','F': '..-.',
+    'G': '--.','H': '....','I': '..','J': '.---','K': '-.-','L': '.-..',
+    'M': '--','N': '-.','O': '---','P': '.--.','Q': '--.-','R': '.-.',
+    'S': '...','T': '-','U': '..-','V': '...-','W': '.--','X': '-..-',
+    'Y': '-.--','Z': '--..',
+    '0': '-----','1': '.----','2': '..---','3': '...--','4': '....-',
+    '5': '.....','6': '-....','7': '--...','8': '---..','9': '----.',
+    '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.',
+    '!': '-.-.--', '/': '-..-.',  '(': '-.--.',  ')': '-.--.-',
+    '&': '.-...',  ':': '---...', ';': '-.-.-.', '=': '-...-',
+    '+': '.-.-.',  '-': '-....-', '_': '..--.-', '"': '.-..-.',
+    '$': '...-..-', '@': '.--.-.'
+  };
+  const REV_MORSE = Object.fromEntries(Object.entries(MORSE).map(([k,v])=>[v,k]));
+
+  const modeEl = document.getElementById('mode');
+  const keyRow = document.getElementById('keyRow');
+  const keyEl  = document.getElementById('key');
+  const inputEl = document.getElementById('input');
+  const outputEl= document.getElementById('output');
+  const encBtn  = document.getElementById('encBtn');
+  const decBtn  = document.getElementById('decBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const copyStatus = document.getElementById('copyStatus');
+  const morseHint = document.getElementById('morseHint');
+
+  function onlyLetters(s){ return (s||'').toUpperCase().replace(/[^A-Z]/g,''); }
+
+  function vigenereEnc(text, key){
+    key = onlyLetters(key);
+    if(!key) throw new Error('Bitte einen Buchstaben-Schlüssel angeben (A–Z).');
+    let res = [], ki = 0;
+    for(let ch of text){
+      if(/[A-Za-z]/.test(ch)){
+        const isU = ch === ch.toUpperCase();
+        const base = isU ? 'A'.charCodeAt(0) : 'a'.charCodeAt(0);
+        const shift = key.charCodeAt(ki % key.length) - 'A'.charCodeAt(0);
+        const enc = String.fromCharCode((ch.charCodeAt(0)-base+shift)%26 + base);
+        res.push(enc); ki++;
+      } else res.push(ch);
+    }
+    return res.join('');
+  }
+  function vigenereDec(text, key){
+    key = onlyLetters(key);
+    if(!key) throw new Error('Bitte einen Buchstaben-Schlüssel angeben (A–Z).');
+    let res = [], ki = 0;
+    for(let ch of text){
+      if(/[A-Za-z]/.test(ch)){
+        const isU = ch === ch.toUpperCase();
+        const base = isU ? 'A'.charCodeAt(0) : 'a'.charCodeAt(0);
+        const shift = key.charCodeAt(ki % key.length) - 'A'.charCodeAt(0);
+        const dec = String.fromCharCode((ch.charCodeAt(0)-base-shift+26)%26 + base);
+        res.push(dec); ki++;
+      } else res.push(ch);
+    }
+    return res.join('');
+  }
+  function rot13(text){
+    return text.replace(/[A-Za-z]/g, c => {
+      const base = c <= 'Z' ? 65 : 97;
+      return String.fromCharCode((c.charCodeAt(0)-base+13)%26 + base);
+    });
+  }
+  function morseEnc(text){
+    const out = [];
+    for(const ch of text.toUpperCase()){
+      if(ch === ' ') out.push('/');
+      else if(MORSE[ch]) out.push(MORSE[ch]);
+      else out.push(ch);
+    }
+    return out.join(' ');
+  }
+  function morseDec(text){
+    const words = text.trim().split(' / ');
+    const decoded = words.map(w => w.split(' ').map(code => REV_MORSE[code]||'?').join(''));
+    return decoded.join(' ').replace(/\s+/g,' ').trim();
+  }
+
+  function updateUI(){
+    const mode = modeEl.value;
+    keyRow.classList.toggle('hidden', mode !== 'vigenere');
+    morseHint.classList.toggle('hidden', mode !== 'morse');
+  }
+  modeEl.addEventListener('change', updateUI);
+  updateUI();
+
+  encBtn.addEventListener('click', ()=>{
+    try {
+      const mode = modeEl.value;
+      const txt = inputEl.value || '';
+      let out = '';
+      if(mode==='vigenere') out = vigenereEnc(txt, keyEl.value);
+      else if(mode==='rot13') out = rot13(txt);
+      else if(mode==='morse') out = morseEnc(txt);
+      outputEl.value = out;
+    } catch(e){ alert(e.message); }
+  });
+  decBtn.addEventListener('click', ()=>{
+    try {
+      const mode = modeEl.value;
+      const txt = inputEl.value || '';
+      let out = '';
+      if(mode==='vigenere') out = vigenereDec(txt, keyEl.value);
+      else if(mode==='rot13') out = rot13(txt);
+      else if(mode==='morse') out = morseDec(txt);
+      outputEl.value = out;
+    } catch(e){ alert(e.message); }
+  });
+  copyBtn.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(outputEl.value||'');
+      copyStatus.textContent = 'Kopiert!';
+      setTimeout(()=>copyStatus.textContent='', 1500);
+    } catch(e){
+      copyStatus.textContent = 'Kopieren fehlgeschlagen';
+      setTimeout(()=>copyStatus.textContent='', 1500);
+    }
+  });
+})();
+</script>
+</body>
+</html>
