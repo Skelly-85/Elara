@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Elara</title>
+
+<!-- PWA / Icons -->
+<meta name="theme-color" content="#00ff66">
+<link rel="manifest" href="manifest.json?v=3">
+<link rel="icon" sizes="192x192" href="elara-icon-192-v2.png">
+<link rel="apple-touch-icon" sizes="512x512" href="elara-icon-512-v2.png">
+
 <style>
   :root { --pad: 16px; --radius: 14px; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; margin:0; background:#0f1115; color:#e6e8ee; }
@@ -45,7 +52,7 @@
 
       <div class="row" id="keyRow">
         <label for="key">Schlüssel (nur bei Vigenère, Buchstaben A–Z)</label>
-        <input id="key" placeholder="z. B. MONDLIGHT" autocomplete="off">
+        <input id="key" placeholder="z. B. MONDLIGHT" autocomplete="off">
       </div>
 
       <div class="row">
@@ -69,7 +76,7 @@
       </div>
 
       <div class="footer">
-        Tipp: Für Vigenère reicht ein gemeinsames Codewort. Für Rapid‑Chat nutze <span class="chip">ROT13</span>; für unauffällige Kurznachrichten <span class="chip">Morse</span>.
+        Tipp: Für Vigenère reicht ein gemeinsames Codewort. Für Rapid-Chat nutze <span class="chip">ROT13</span>; für unauffällige Kurznachrichten <span class="chip">Morse</span>.
       </div>
     </div>
   </div>
